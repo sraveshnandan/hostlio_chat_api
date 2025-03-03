@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { createConversationPayload } from "../types";
-import { Conversation } from "../database/models";
+import { Conversation, Message } from "../database/models";
 
 export const handleCreateConversation = async (req: Request, res: Response) => {
   try {
@@ -12,10 +12,7 @@ export const handleCreateConversation = async (req: Request, res: Response) => {
       participants: { $all: [userId, ownerId] },
     })
       .populate("messages")
-      .populate({
-        path: "participants",
-        select: "first_name last_name avatar email",
-      });
+      .populate("participants", "first_name last_name avatar email _id");
 
     if (conv) {
       return res.status(200).json({
@@ -25,9 +22,17 @@ export const handleCreateConversation = async (req: Request, res: Response) => {
       });
     }
 
+    const newMessage = await Message.create({
+      sender: userId,
+      content: "Hey, I found your listing on Hostlio, Can we talk further.",
+    });
+
+    let allMsg = [];
+    allMsg.push(newMessage._id);
     conv = await Conversation.create({
       participants: [userId, ownerId],
       listing: listingId,
+      messages: allMsg,
     });
 
     return res.status(200).json({
@@ -36,13 +41,7 @@ export const handleCreateConversation = async (req: Request, res: Response) => {
       message: "Conversation created successfully.",
     });
   } catch (error) {
-    console.log(
-      `Error occurred while exec handleCreateConversation : ${JSON.stringify(
-        error,
-        null,
-        2
-      )} `
-    );
+    console.log("Error occurred while exec handleCreateConversation :", error);
     return res.status(500).json({
       success: false,
       message: `Internal server error.`,
@@ -57,9 +56,12 @@ export const handleGetConversationMessages = async (
   try {
     const { userId } = req.query;
 
-    let conv = await Conversation.findOne({
+    let conv = await Conversation.find({
       participants: { $in: userId },
-    }).populate("messages");
+    })
+      .populate("messages", "sender content createdAt")
+      .populate("participants", "first_name last_name avatar email _id")
+      .sort({ createdAt: -1 });
 
     if (!conv) {
       return res.status(404).json({
@@ -70,7 +72,7 @@ export const handleGetConversationMessages = async (
 
     return res.status(200).json({
       success: true,
-      conversation: conv,
+      conversations: conv,
       message: "Conversation fetched successfully.",
     });
   } catch (error) {

@@ -9,11 +9,12 @@ interface IMessage extends Document {
 const MessageSchema = new Schema(
   {
     sender: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    conversation: {
-      type: Schema.Types.ObjectId,
-      ref: "Conversation",
-      required: true,
+    message_type: {
+      type: String,
+      enum: ["text", "img", "video", "doc"],
+      default: "text",
     },
+
     content: { type: String, required: true },
   },
   { timestamps: true }
