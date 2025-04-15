@@ -1,23 +1,26 @@
+# Stage 1: Build
 FROM node:18 AS builder
 
 WORKDIR /build
 
-COPY package*.json ./
+# Copy and install dependencies
+COPY package.json package-lock.json ./
+RUN npm install --production
 
-RUN npm install
-
+# Copy app source code and build
 COPY . .
-
 RUN npm run build
 
-FROM node:18
+# Stage 2: Production Image
+FROM node:18-slim
 
 WORKDIR /app
 
-COPY --from=builder /build/dist ./
+# Copy only required artifacts from builder
+COPY --from=builder /build/dist ./dist
 COPY --from=builder /build/node_modules ./node_modules
 COPY --from=builder /build/package.json ./package.json
 
 EXPOSE 5000
 
-CMD [ "node","./dist/app.js" ]
+CMD ["node", "./dist/app.js"]
